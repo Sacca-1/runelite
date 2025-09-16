@@ -893,7 +893,7 @@ public class LootTrackerPlugin extends Plugin
 
 		for (int index = 0; index < WILDERNESS_LOOT_KEY_CONTAINERS.length; index++)
 		{
-			Collection<ItemStack> items = toItemStacks(client.getItemContainer(WILDERNESS_LOOT_KEY_CONTAINERS[index]));
+			final Collection<ItemStack> items = toItemStacks(client.getItemContainer(WILDERNESS_LOOT_KEY_CONTAINERS[index]));
 			if (items.isEmpty())
 			{
 				continue;
