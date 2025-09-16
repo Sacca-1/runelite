@@ -84,7 +84,6 @@ import net.runelite.api.events.MenuOptionClicked;
 import net.runelite.api.events.PostClientTick;
 import net.runelite.api.events.ScriptPreFired;
 import net.runelite.api.events.WidgetLoaded;
-import net.runelite.api.widgets.Widget;
 import net.runelite.api.gameval.InterfaceID;
 import net.runelite.api.gameval.InventoryID;
 import net.runelite.api.gameval.ItemID;
@@ -150,8 +149,6 @@ public class LootTrackerPlugin extends Plugin
 		InventoryID.DEADMAN_LOOT_INV3,
 		InventoryID.DEADMAN_LOOT_INV4
 	};
-	// Root widget child index for the tab value labels
-	private static final int WILDERNESS_LOOT_KEY_TAB_VALUE_CHILD = 10;
 
 	// Herbiboar loot handling
 	@VisibleForTesting
@@ -855,11 +852,7 @@ public class LootTrackerPlugin extends Plugin
 			return;
 		}
 
-		// Convert container items to array of ItemStack
-		final Collection<ItemStack> items = Arrays.stream(container.getItems())
-			.filter(item -> item.getId() > -1)
-			.map(item -> new ItemStack(item.getId(), item.getQuantity()))
-			.collect(Collectors.toList());
+		final Collection<ItemStack> items = toItemStacks(container);
 
 		if (config.showRaidsLootValue() && (event.equals(THEATRE_OF_BLOOD) || event.equals(CHAMBERS_OF_XERIC) || event.equals(TOMBS_OF_AMASCUT)))
 		{
@@ -906,19 +899,8 @@ public class LootTrackerPlugin extends Plugin
 				continue;
 			}
 
-			String value = getWildernessLootKeyValue(index);
-			addLoot("Loot Chest", -1, LootRecordType.EVENT, Strings.isNullOrEmpty(value) ? null : value, items);
+			addLoot("Loot Chest", -1, LootRecordType.EVENT, null, items);
 			recordedLoot = true;
-		}
-
-		if (!recordedLoot)
-		{
-			Collection<ItemStack> legacyItems = toItemStacks(client.getItemContainer(InventoryID.LOOT_INV_ACCESS));
-			if (!legacyItems.isEmpty())
-			{
-				addLoot("Loot Chest", -1, LootRecordType.EVENT, null, legacyItems);
-				return true;
-			}
 		}
 
 		return recordedLoot;
@@ -937,32 +919,8 @@ public class LootTrackerPlugin extends Plugin
 			.collect(Collectors.toList());
 	}
 
-	@Nullable
-	private String getWildernessLootKeyValue(int tabIndex)
-	{
-		Widget widget = client.getWidget(InterfaceID.WILDY_LOOT_CHEST, WILDERNESS_LOOT_KEY_TAB_VALUE_CHILD + tabIndex);
-		if (widget == null)
-		{
-			return null;
-		}
-
-		String text = widget.getText();
-		if (Strings.isNullOrEmpty(text))
-		{
-			return null;
-		}
-
-		text = Text.removeTags(text).trim();
-		return text.isEmpty() ? null : text;
-	}
-
 	private boolean isWildernessLootChestContainer(int containerId)
 	{
-		if (containerId == InventoryID.LOOT_INV_ACCESS)
-		{
-			return true;
-		}
-
 		for (int id : WILDERNESS_LOOT_KEY_CONTAINERS)
 		{
 			if (id == containerId)
@@ -976,11 +934,6 @@ public class LootTrackerPlugin extends Plugin
 
 	private boolean areWildernessLootKeyContainersEmpty()
 	{
-		if (containerHasItems(client.getItemContainer(InventoryID.LOOT_INV_ACCESS)))
-		{
-			return false;
-		}
-
 		for (int id : WILDERNESS_LOOT_KEY_CONTAINERS)
 		{
 			if (containerHasItems(client.getItemContainer(id)))
@@ -994,7 +947,7 @@ public class LootTrackerPlugin extends Plugin
 
 	private boolean containerHasItems(@Nullable ItemContainer container)
 	{
-		return container != null && Arrays.stream(container.getItems()).anyMatch(item -> item.getId() > -1);
+		return container != null && container.count() > 0;
 	}
 
 	@Subscribe
@@ -1220,7 +1173,6 @@ public class LootTrackerPlugin extends Plugin
 	{
 		// when the wilderness chest empties, clear chest loot flag for the next key
 		if (isWildernessLootChestContainer(event.getContainerId())
-			&& Arrays.stream(event.getItemContainer().getItems()).noneMatch(i -> i.getId() > -1)
 			&& areWildernessLootKeyContainersEmpty())
 		{
 			log.debug("Resetting chest loot flag");
